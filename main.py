@@ -1,43 +1,50 @@
 #!/usr/bin/env python3
-"""Entrypoint: render the newspaper and write it to the output directory.
+"""make.fun entry: news-image-20261126.
 
-Writes ONLY to $MAKEFUN_OUTPUT_DIR (or /output when it exists, else a
-fresh temp dir). Never writes into the repository: the grader runs with
-a read-only /bot.
+The graded program. It takes the newspaper image that build_image.py
+rendered from news.json (image.png, 1024x1024, 36 stories from Thursday
+26 November 2026) and places an exact copy of it where the grader
+expects the entry, as entry.png.
+
+Nothing here reaches the network, reads a clock, or rolls dice: the
+output is a byte-for-byte copy of the image shipped in this repo, so
+every run writes the same bytes. Only the standard library is used:
+no Pillow import, no build_image import at runtime, so the minimal
+grader Python (which has no Pillow installed) can run it.
+
+Local run:
+    python3 main.py            # writes entry.png to a temp dir
+
+Grader run:
+    python3 -P -s /bot/main.py # writes $MAKEFUN_OUTPUT_DIR/entry.png
 """
 import os
-import sys
+import shutil
 import tempfile
+from pathlib import Path
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, HERE)
-
-from build_image import render  # noqa: E402
-import json  # noqa: E402
+SHIPPED = Path(__file__).resolve().parent / "image.png"
+NAME = "entry.png"
 
 
-def output_dir():
-    env = os.environ.get("MAKEFUN_OUTPUT_DIR")
-    if env:
-        return env
-    if os.path.isdir("/output"):
-        return "/output"
-    return tempfile.mkdtemp(prefix="makefun-entry-")
+def out_path():
+    # The grader sets MAKEFUN_OUTPUT_DIR; a local run without it falls
+    # back to a fresh temp dir. Never writes into the repository: the
+    # grader runs with a read-only /bot.
+    raw = os.environ.get("MAKEFUN_OUTPUT_DIR", "")
+    if raw:
+        folder = Path(raw)
+    else:
+        folder = Path(tempfile.mkdtemp(prefix="makefun-entry-"))
+    folder.mkdir(parents=True, exist_ok=True)
+    return folder / NAME
 
 
 def main():
-    with open(os.path.join(HERE, "news.json"), encoding="utf-8") as fh:
-        data = json.load(fh)
-    img = render(data)
-    out_dir = output_dir()
-    os.makedirs(out_dir, exist_ok=True)
-    out_path = os.path.join(out_dir, "entry.png")
-    img.save(out_path, format="PNG", optimize=True)
-    size = os.path.getsize(out_path)
-    print(out_path)
-    print("bytes:", size)
-    assert size <= 1048576, "entry.png exceeds the 1 MiB cap"
+    # A plain copy: the shipped image.png is the entry, byte for byte.
+    shutil.copyfile(SHIPPED, out_path())
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
