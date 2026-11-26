@@ -42,7 +42,12 @@ def out_path():
 
 def main():
     # A plain copy: the shipped image.png is the entry, byte for byte.
-    shutil.copyfile(SHIPPED, out_path())
+    target = out_path()
+    shutil.copyfile(SHIPPED, target)
+    # Read-back check: the written entry must be an exact copy of the
+    # shipped image. Fail loudly instead of shipping a truncated file.
+    if target.read_bytes() != SHIPPED.read_bytes():
+        raise SystemExit("entry.png does not match image.png")
     return 0
 
 
